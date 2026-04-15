@@ -52,8 +52,58 @@ for arg in "$@"; do
     esac
 done
 
+# ---- Read ports from config.yaml ----
+CONFIG_FILE="$SCRIPT_DIR/config.yaml"
+if [ -f "$CONFIG_FILE" ]; then
+    read_ports() {
+        python3 -c "
+import yaml
+with open('$CONFIG_FILE') as f:
+    cfg = yaml.safe_load(f)
+server = cfg.get('server', {})
+print(server.get('frontend_port', 16888))
+print(server.get('api_port', 16889))
+"
+    }
+    PORT_VALUES=$(read_ports 2>/dev/null || true)
+    FRONTEND_PORT=$(echo "$PORT_VALUES" | sed -n '1p')
+    API_PORT=$(echo "$PORT_VALUES" | sed -n '2p')
+fi
+FRONTEND_PORT=${FRONTEND_PORT:-16888}
+API_PORT=${API_PORT:-16889}
+
+# ---- Fallback: kill by port when PID files are missing ----
+kill_by_port() {
+    local port=$1
+    local label=$2
+    local pids
+    pids=$(ss -tlnp "sport = :$port" 2>/dev/null | awk -F'pid=' '/pid=/{print $2}' | awk -F',' '{print $1}' | sort -u)
+    for pid in $pids; do
+        echo "Stopping $label (PID $pid) found on port $port ..."
+        kill "$pid" 2>/dev/null || true
+        for i in $(seq 1 10); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 0.5
+        done
+        if kill -0 "$pid" 2>/dev/null; then
+            echo "  Force killing $label (PID $pid) ..."
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+        echo "  $label stopped."
+        STOPPED=$((STOPPED + 1))
+    done
+}
+
 if [ ! -d "$PID_DIR" ]; then
-    echo "No PID directory found. Services may not be running."
+    echo "No PID directory found. Trying to find services by port..."
+    STOPPED=0
+    [ "$STOP_API" = true ] && kill_by_port "$API_PORT" "API server"
+    [ "$STOP_FRONTEND" = true ] && kill_by_port "$FRONTEND_PORT" "Frontend server"
+    if [ "$STOPPED" -eq 0 ]; then
+        echo "No running services found."
+    else
+        echo "Stopped $STOPPED service(s)."
+    fi
     exit 0
 fi
 
