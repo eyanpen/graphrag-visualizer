@@ -65,9 +65,28 @@ const GraphDataHandler: React.FC = () => {
   const hasCommunities = communities.length > 0;
   const hasCovariates = covariates.length > 0;
 
-  // Check server status on mount
+  // Check server status on mount, with retry
   useEffect(() => {
-    checkServerStatus();
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout>;
+
+    const poll = async (attempt: number) => {
+      if (cancelled) return;
+      const up = await checkServerStatus();
+      if (!up && !cancelled) {
+        // Retry with back-off: 2s, 3s, 4s, 5s, then every 5s
+        const delay = Math.min(2000 + attempt * 1000, 5000);
+        console.log(`[GraphRAG] API not ready, retrying in ${delay}ms (attempt ${attempt + 1})...`);
+        retryTimer = setTimeout(() => poll(attempt + 1), delay);
+      }
+    };
+
+    poll(0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
   }, []);
 
   // Auto-load data from API when server is up
@@ -103,16 +122,18 @@ const GraphDataHandler: React.FC = () => {
     }
   }, [location.pathname]);
 
-  const checkServerStatus = async () => {
+  const checkServerStatus = async (): Promise<boolean> => {
     try {
       const response = await agent.Status.check();
       if (response.status === "Server is up and running") {
         setServerUp(true);
-      } else {
-        setServerUp(false);
+        return true;
       }
+      setServerUp(false);
+      return false;
     } catch (error) {
       setServerUp(false);
+      return false;
     }
   };
 
