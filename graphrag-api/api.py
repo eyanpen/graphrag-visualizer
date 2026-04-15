@@ -18,20 +18,24 @@ from pathlib import Path
 from typing import Optional
 
 # Logging: DEBUG to file, INFO to console
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
-_console = logging.StreamHandler()
-_console.setLevel(logging.INFO)
-_console.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-logger.addHandler(_console)
-
 _log_dir = Path(__file__).parent / "logs"
 _log_dir.mkdir(exist_ok=True)
-_file = logging.FileHandler(_log_dir / "debug.log", mode="w", encoding="utf-8")
-_file.setLevel(logging.DEBUG)
-_file.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-logger.addHandler(_file)
+_fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+_file_handler = logging.FileHandler(_log_dir / "debug.log", mode="w", encoding="utf-8")
+_file_handler.setLevel(logging.DEBUG)
+_file_handler.setFormatter(_fmt)
+
+_console_handler = logging.StreamHandler()
+_console_handler.setLevel(logging.INFO)
+_console_handler.setFormatter(_fmt)
+
+# Create app logger immediately (won't be reset by uvicorn)
+log = logging.getLogger("graphrag-api")
+log.setLevel(logging.DEBUG)
+log.addHandler(_file_handler)
+log.addHandler(_console_handler)
+log.propagate = False
 
 from utils import process_context_data
 
@@ -39,6 +43,10 @@ import graphrag.api as api
 from graphrag.config.load_config import load_config
 from graphrag.config.models.graph_rag_config import GraphRagConfig
 import pandas as pd
+
+# Attach file handler to LiteLLM loggers after import
+for _name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+    logging.getLogger(_name).addHandler(_file_handler)
 
 
 def load_yaml_config() -> dict:
@@ -300,6 +308,7 @@ async def global_search(query: str = Query(..., description="Global Search")):
         }
         return JSONResponse(content=response_dict)
     except Exception as e:
+        log.exception("global_search failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -327,6 +336,7 @@ async def local_search(query: str = Query(..., description="Local Search")):
         }
         return JSONResponse(content=response_dict)
     except Exception as e:
+        log.exception("local_search failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -353,6 +363,7 @@ async def drift_search(query: str = Query(..., description="DRIFT Search")):
         }
         return JSONResponse(content=response_dict)
     except Exception as e:
+        log.exception("drift_search failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -373,6 +384,7 @@ async def basic_search(query: str = Query(..., description="Basic Search")):
         }
         return JSONResponse(content=response_dict)
     except Exception as e:
+        log.exception("basic_search failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -406,4 +418,4 @@ if __name__ == "__main__":
     api_port = yaml_config.get("server", {}).get("api_port", 16889)
     api_host = yaml_config.get("server", {}).get("host", "0.0.0.0")
     print(f"Starting GraphRAG API on {api_host}:{api_port}")
-    uvicorn.run(app, host=api_host, port=api_port)
+    uvicorn.run(app, host=api_host, port=api_port, log_config=None)
