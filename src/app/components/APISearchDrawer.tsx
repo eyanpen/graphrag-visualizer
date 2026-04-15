@@ -18,7 +18,6 @@ import {
   Paper,
   IconButton,
   Collapse,
-  Link,
   Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
@@ -26,12 +25,14 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import { SearchResult } from "../models/search-result";
 
+type SearchType = "local" | "global" | "drift" | "basic";
+
 interface APISearchDrawerProps {
   apiDrawerOpen: boolean;
   toggleDrawer: (open: boolean) => () => void;
   handleApiSearch: (
     query: string,
-    searchType: "local" | "global"
+    searchType: SearchType
   ) => Promise<void>;
   apiSearchResults: SearchResult | null;
   localSearchEnabled: boolean;
@@ -51,38 +52,29 @@ const APISearchDrawer: React.FC<APISearchDrawerProps> = ({
   serverUp,
 }) => {
   const [query, setQuery] = useState<string>("");
-  const [loadingLocal, setLoadingLocal] = useState<boolean>(false);
-  const [loadingGlobal, setLoadingGlobal] = useState<boolean>(false);
+  const [loadingType, setLoadingType] = useState<SearchType | null>(null);
   const [expandedTables, setExpandedTables] = useState<{
     [key: string]: boolean;
   }>({});
 
   useEffect(() => {
-    // Initialize the expandedTables state to false for all keys in context_data
     if (apiSearchResults && apiSearchResults.context_data) {
       const initialExpandedState: { [key: string]: boolean } = {};
-      Object.keys(apiSearchResults.context_data).forEach((key) => {
-        initialExpandedState[key] = true;
-      });
+      if (typeof apiSearchResults.context_data === "object" && !Array.isArray(apiSearchResults.context_data)) {
+        Object.keys(apiSearchResults.context_data).forEach((key) => {
+          initialExpandedState[key] = true;
+        });
+      }
       setExpandedTables(initialExpandedState);
     }
   }, [apiSearchResults]);
 
-  const handleSearch = async (searchType: "local" | "global") => {
-    if (searchType === "local") {
-      setLoadingLocal(true);
-    } else {
-      setLoadingGlobal(true);
-    }
-
+  const handleSearch = async (searchType: SearchType) => {
+    setLoadingType(searchType);
     try {
       await handleApiSearch(query, searchType);
     } finally {
-      if (searchType === "local") {
-        setLoadingLocal(false);
-      } else {
-        setLoadingGlobal(false);
-      }
+      setLoadingType(null);
     }
   };
 
@@ -92,6 +84,8 @@ const APISearchDrawer: React.FC<APISearchDrawerProps> = ({
       [key]: !prevState[key],
     }));
   };
+
+  const isLoading = loadingType !== null;
 
   return (
     <Drawer
@@ -103,7 +97,6 @@ const APISearchDrawer: React.FC<APISearchDrawerProps> = ({
       <Box
         sx={{ width: "60vw", padding: 2, paddingTop: 6, position: "relative" }}
       >
-        {/* Close Button at the top-right corner */}
         <IconButton
           onClick={toggleDrawer(false)}
           sx={{ position: "absolute", top: 8, right: 8 }}
@@ -111,64 +104,62 @@ const APISearchDrawer: React.FC<APISearchDrawerProps> = ({
           <CloseIcon />
         </IconButton>
 
-        {/* First Row: TextField */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <TextField
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            // onKeyDown={async (e) => {
-            //   if (e.key === "Enter" && !loadingLocal) {
-            //     await handleSearch("local"); // Default to global search on enter
-            //   }
-            // }}
-            placeholder="Enter search query for API"
+            onKeyDown={async (e) => {
+              if (e.key === "Enter" && !isLoading && localSearchEnabled) {
+                await handleSearch("local");
+              }
+            }}
+            placeholder="Enter search query"
             fullWidth
             margin="normal"
           />
 
-          {/* Second Row: Buttons */}
-          <Box sx={{ display: "flex", gap: 2 }}>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Button
               variant="contained"
-              sx={{ flex: 1, whiteSpace: "normal", textAlign: "center" }}
+              sx={{ flex: 1, minWidth: 120, whiteSpace: "normal", textAlign: "center" }}
               onClick={() => handleSearch("local")}
-              disabled={
-                !serverUp ||
-                !localSearchEnabled ||
-                loadingLocal ||
-                loadingGlobal
-              }
+              disabled={!serverUp || !localSearchEnabled || isLoading}
             >
-              {loadingLocal ? <CircularProgress size={24} /> : "Local Search"}
+              {loadingType === "local" ? <CircularProgress size={24} /> : "Local Search"}
             </Button>
             <Button
               variant="contained"
               color="success"
-              sx={{ flex: 1, whiteSpace: "normal", textAlign: "center" }}
+              sx={{ flex: 1, minWidth: 120, whiteSpace: "normal", textAlign: "center" }}
               onClick={() => handleSearch("global")}
-              disabled={
-                !serverUp ||
-                !globalSearchEnabled ||
-                loadingLocal ||
-                loadingGlobal
-              }
+              disabled={!serverUp || !globalSearchEnabled || isLoading}
             >
-              {loadingGlobal ? <CircularProgress size={24} /> : "Global Search"}
+              {loadingType === "global" ? <CircularProgress size={24} /> : "Global Search"}
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              sx={{ flex: 1, minWidth: 120, whiteSpace: "normal", textAlign: "center" }}
+              onClick={() => handleSearch("drift")}
+              disabled={!serverUp || isLoading}
+            >
+              {loadingType === "drift" ? <CircularProgress size={24} /> : "DRIFT Search"}
+            </Button>
+            <Button
+              variant="contained"
+              color="info"
+              sx={{ flex: 1, minWidth: 120, whiteSpace: "normal", textAlign: "center" }}
+              onClick={() => handleSearch("basic")}
+              disabled={!serverUp || isLoading}
+            >
+              {loadingType === "basic" ? <CircularProgress size={24} /> : "Basic Search"}
             </Button>
           </Box>
 
           {!serverUp && (
             <Alert severity="error" sx={{ mt: 1 }}>
-              Server is not running. Please start the server to use the API.
-              Follow the instructions at{" "}
-              <Link
-                href="https://github.com/noworneverev/graphrag-api"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                graphrag-api
-              </Link>
-              .
+              Server is not running. Please start the server using{" "}
+              <code>./start.sh</code>.
             </Alert>
           )}
           {!localSearchEnabled && (
@@ -187,7 +178,6 @@ const APISearchDrawer: React.FC<APISearchDrawerProps> = ({
 
         {apiSearchResults && (
           <>
-            {/* Search Results Card */}
             <Card sx={{ marginTop: 2 }}>
               <CardHeader title="Search Results" />
               <CardContent>
@@ -197,27 +187,32 @@ const APISearchDrawer: React.FC<APISearchDrawerProps> = ({
               </CardContent>
             </Card>
 
-            {/* Metadata Card */}
             <Card sx={{ marginTop: 2 }}>
               <CardHeader title="Metadata" />
               <CardContent>
-                <Typography variant="body2">
-                  <strong>Completion Time:</strong>{" "}
-                  {apiSearchResults.completion_time} ms
-                </Typography>
-                <Typography variant="body2">
-                  <strong>LLM Calls:</strong> {apiSearchResults.llm_calls}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Prompt Tokens:</strong>{" "}
-                  {apiSearchResults.prompt_tokens}
-                </Typography>
+                {apiSearchResults.completion_time !== undefined && (
+                  <Typography variant="body2">
+                    <strong>Completion Time:</strong>{" "}
+                    {apiSearchResults.completion_time} ms
+                  </Typography>
+                )}
+                {apiSearchResults.llm_calls !== undefined && (
+                  <Typography variant="body2">
+                    <strong>LLM Calls:</strong> {apiSearchResults.llm_calls}
+                  </Typography>
+                )}
+                {apiSearchResults.prompt_tokens !== undefined && (
+                  <Typography variant="body2">
+                    <strong>Prompt Tokens:</strong>{" "}
+                    {apiSearchResults.prompt_tokens}
+                  </Typography>
+                )}
               </CardContent>
             </Card>
 
-            {/* Context Data Tables */}
-            {apiSearchResults &&
-              apiSearchResults.context_data &&
+            {apiSearchResults.context_data &&
+              typeof apiSearchResults.context_data === "object" &&
+              !Array.isArray(apiSearchResults.context_data) &&
               Object.entries(apiSearchResults.context_data).map(
                 ([key, data], index) => (
                   <Card sx={{ marginTop: 2 }} key={index}>
@@ -255,10 +250,10 @@ const APISearchDrawer: React.FC<APISearchDrawerProps> = ({
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {data.map((row, rowIndex) => (
+                                {data.map((row: any, rowIndex: number) => (
                                   <TableRow key={rowIndex}>
                                     {Object.values(row).map(
-                                      (value, cellIndex) => (
+                                      (value: any, cellIndex: number) => (
                                         <TableCell key={cellIndex}>
                                           {typeof value === "string"
                                             ? value

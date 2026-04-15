@@ -123,7 +123,7 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
   const [apiSearchResults, setApiSearchResults] = useState<SearchResult | null>(
     null
   );
-  const [serverUp, setServerUp] = useState<boolean>(false);
+  const [serverUp, setServerUp] = useState<boolean>(true); // API is always co-started
 
   const [graphData, setGraphData] = useState<CustomGraphData>(data);
 
@@ -144,20 +144,30 @@ const GraphViewer: React.FC<GraphViewerProps> = ({
 
   const handleApiSearch = async (
     query: string,
-    searchType: "local" | "global"
+    searchType: "local" | "global" | "drift" | "basic"
   ) => {
     try {
-      const data: SearchResult =
-        searchType === "local"
-          ? await agent.Search.local(query)
-          : await agent.Search.global(query);
+      let data: SearchResult;
+      switch (searchType) {
+        case "local":
+          data = await agent.Search.local(query);
+          break;
+        case "global":
+          data = await agent.Search.global(query);
+          break;
+        case "drift":
+          data = await agent.Search.drift(query);
+          break;
+        case "basic":
+          data = await agent.Search.basic(query);
+          break;
+      }
 
       setApiSearchResults(data);
       // Process the search result to update the graph data
       updateGraphData(data.context_data);
     } catch (err) {
       console.error("An error occurred during the API search.", err);
-    } finally {
     }
   };
 

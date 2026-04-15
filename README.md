@@ -1,7 +1,5 @@
 # GraphRAG Visualizer
 
-👉 [GraphRAG Visualizer](https://noworneverev.github.io/graphrag-visualizer/)<br/>
-👉 [GraphRAG Visualizer Demo](https://www.youtube.com/watch?v=Hjx1iTZZtzw)
 
 ![demo](public/demo.png)
 

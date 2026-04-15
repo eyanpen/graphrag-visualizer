@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import GraphViewer from "./GraphViewer";
-import { Box, Container, Tab, Tabs } from "@mui/material";
-import { useDropzone } from "react-dropzone";
-import DropZone from "./DropZone";
+import { Box, Container, Tab, Tabs, CircularProgress, Typography } from "@mui/material";
+import DataSourceSelector from "./DataSourceSelector";
 import Introduction from "./Introduction";
 import useFileHandler from "../hooks/useFileHandler";
 import useGraphData from "../hooks/useGraphData";
 import DataTableContainer from "./DataTableContainer";
 import ReactGA from "react-ga4";
+import agent from "../api/agent";
 
 const GraphDataHandler: React.FC = () => {
   const location = useLocation();
@@ -31,6 +31,7 @@ const GraphDataHandler: React.FC = () => {
   const [includeCommunities, setIncludeCommunities] = useState(false);
   const [includeCovariates, setIncludeCovariates] = useState(false);
   const [maxEntities, setMaxEntities] = useState(500);
+  const [serverUp, setServerUp] = useState(false);
 
   const {
     entities,
@@ -40,8 +41,8 @@ const GraphDataHandler: React.FC = () => {
     communities,
     covariates,
     communityReports,
-    handleFilesRead,
-    loadDefaultFiles,
+    loadFromApi,
+    loading,
   } = useFileHandler();
 
   const graphData = useGraphData(
@@ -64,24 +65,29 @@ const GraphDataHandler: React.FC = () => {
   const hasCommunities = communities.length > 0;
   const hasCovariates = covariates.length > 0;
 
+  // Check server status on mount
   useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      loadDefaultFiles();
+    checkServerStatus();
+  }, []);
+
+  // Auto-load data from API when server is up
+  useEffect(() => {
+    if (serverUp) {
+      loadFromApi();
     }
     // eslint-disable-next-line
-  }, []);
+  }, [serverUp]);
 
   useEffect(() => {
     const measurementId = process.env.REACT_APP_GA_MEASUREMENT_ID;
     if (measurementId) {
       ReactGA.initialize(measurementId);
     } else {
-      console.error("Google Analytics measurement ID not found");
+      // Not an error in dev mode
     }
   }, []);
 
   useEffect(() => {
-    // **Set tab index based on the current path**
     switch (location.pathname) {
       case "/upload":
         setTabIndex(0);
@@ -97,19 +103,23 @@ const GraphDataHandler: React.FC = () => {
     }
   }, [location.pathname]);
 
-  const onDrop = (acceptedFiles: File[]) => {
-    handleFilesRead(acceptedFiles);
-    navigate("/graph", { replace: true });
+  const checkServerStatus = async () => {
+    try {
+      const response = await agent.Status.check();
+      if (response.status === "Server is up and running") {
+        setServerUp(true);
+      } else {
+        setServerUp(false);
+      }
+    } catch (error) {
+      setServerUp(false);
+    }
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    noClick: false,
-    noKeyboard: true,
-    accept: {
-      "application/x-parquet": [".parquet"],
-    },
-  });
+  const handleDataSourceChanged = () => {
+    // Reload parquet data from the newly selected data source
+    loadFromApi();
+  };
 
   const handleChange = (event: React.ChangeEvent<{}>, newValue: number) => {
     setTabIndex(newValue);
@@ -136,7 +146,7 @@ const GraphDataHandler: React.FC = () => {
   return (
     <>
       <Tabs value={tabIndex} onChange={handleChange} centered>
-        <Tab label="Upload Artifacts" />
+        <Tab label="Data Source" />
         <Tab label="Graph Visualization" />
         <Tab label="Data Tables" />
       </Tabs>
@@ -149,7 +159,16 @@ const GraphDataHandler: React.FC = () => {
             flexDirection: "column",
           }}
         >
-          <DropZone {...{ getRootProps, getInputProps, isDragActive }} />
+          <DataSourceSelector
+            onDataSourceChanged={handleDataSourceChanged}
+            serverUp={serverUp}
+          />
+          {loading && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+              <CircularProgress size={20} />
+              <Typography variant="body2">Loading parquet data from server...</Typography>
+            </Box>
+          )}
           <Introduction />
         </Container>
       )}

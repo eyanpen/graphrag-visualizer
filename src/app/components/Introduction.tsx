@@ -20,18 +20,6 @@ const Introduction: React.FC = () => {
         Welcome to the GraphRAG Visualizer
       </Typography>
 
-      <Typography variant="body1" gutterBottom sx={{ color: "error.main" }}>
-        If you are using <strong>GraphRAG 0.3.x or below</strong>, please visit
-        the legacy site:{" "}
-        <Link
-          href="https://noworneverev.github.io/graphrag-visualizer-legacy"
-          target="_blank"
-          rel="noopener"
-        >
-          GraphRAG Visualizer Legacy
-        </Link>
-      </Typography>
-
       <Typography variant="h6" gutterBottom>
         Overview
       </Typography>
@@ -44,21 +32,28 @@ const Introduction: React.FC = () => {
         >
           GraphRAG
         </Link>{" "}
-        artifacts. Simply upload the parquet files to visualize the data without
-        needing additional software like Gephi, Neo4j, or Jupyter Notebook.
+        artifacts. Select a data source above to load and visualize the parquet
+        data. The GraphRAG API server provides both data serving and search
+        functionality.
       </Typography>
 
-      <Box
-        component="img"
-        src={process.env.PUBLIC_URL + "/demo.png"}
-        alt="Demo"
-        sx={{ mt: 2, mb: 2, width: "100%" }}
-      />
-
-      <Typography variant="h6" gutterBottom>
-        Features
+      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+        How to Use
       </Typography>
       <ul>
+        <li>
+          <Typography variant="body1">
+            <strong>Configure Data Sources:</strong> Edit{" "}
+            <code>config.yaml</code> to add your GraphRAG output directories as
+            data sources.
+          </Typography>
+        </li>
+        <li>
+          <Typography variant="body1">
+            <strong>Select Data Source:</strong> Use the selector above to choose
+            which dataset to visualize and search.
+          </Typography>
+        </li>
         <li>
           <Typography variant="body1">
             <strong>Graph Visualization:</strong> View the graph in 2D or 3D in
@@ -73,40 +68,17 @@ const Introduction: React.FC = () => {
         </li>
         <li>
           <Typography variant="body1">
-            <strong>Search Functionality:</strong> Fully supports search,
-            allowing users to focus on specific nodes or relationships.
-          </Typography>
-        </li>
-        <li>
-          <Typography variant="body1">
-            <strong>Local Processing:</strong> Your artifacts are processed
-            locally on your machine. They are not uploaded anywhere, ensuring
-            your data remains secure and private.
+            <strong>Search:</strong> Use Local/Global/DRIFT/Basic search powered
+            by the GraphRAG API, which operates on the currently selected data
+            source.
           </Typography>
         </li>
       </ul>
 
-      <Typography variant="h6" gutterBottom>
-        Using the Search Functionality
-      </Typography>
-      <Typography variant="body1" gutterBottom>
-        Once the{" "}
-        <Link
-          href="https://github.com/noworneverev/graphrag-api"
-          target="_blank"
-          rel="noopener"
-        >
-          graphrag-api
-        </Link>{" "}
-        server is up and running, you can perform searches directly through the
-        GraphRAG Visualizer. This allows you to easily search and explore data
-        that is hosted on your local server.
-      </Typography>
-
       <Box
         component="img"
-        src={process.env.PUBLIC_URL + "/search.png"}
-        alt="Search"
+        src={process.env.PUBLIC_URL + "/demo.png"}
+        alt="Demo"
         sx={{ mt: 2, mb: 2, width: "100%" }}
       />
 

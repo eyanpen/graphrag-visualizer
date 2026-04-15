@@ -1,0 +1,30 @@
+# GraphRAG Visualizer Configuration
+# ===================================
+
+server:
+  host: "0.0.0.0"
+  # React frontend port
+  frontend_port: 16888
+  # GraphRAG API backend port
+  api_port: 16889
+
+# Model configuration for GraphRAG search
+models:
+  # Embedding model
+  embedding_model: "Qwen/Qwen3-Embedding-8B-Alt"
+  # Chat/LLM model
+  chat_model: "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8"
+  # OpenAI-compatible API base URL
+  api_base: "http://10.210.156.69:8633"
+
+# GraphRAG search settings
+search:
+  community_level: 2
+  response_type: "Single Paragraph"
+
+# Data sources - each entry is a named parquet output directory
+# The first entry is the default data source
+data_sources:
+  - name: "graphrag-example"
+    path: "/home/eyanpen/sourceCode/rnd-ai-engine-features/examples/graphrag-example/default_prompts_output/output/"
+    description: "GraphRAG Example Dataset"

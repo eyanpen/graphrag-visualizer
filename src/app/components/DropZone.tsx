@@ -42,6 +42,7 @@ const DropZone: React.FC<DropZoneProps> = ({
       ) : (
         <Typography variant="body1">
           Drag 'n' drop parquet files here, or click to select files
+          (files are read locally in your browser and never uploaded to a server)
         </Typography>
       )}
     </Box>

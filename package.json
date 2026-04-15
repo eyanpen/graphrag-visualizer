@@ -38,6 +38,8 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
     "start": "react-app-rewired start",
+    "start:all": "bash start.sh",
+    "start:api": "bash start.sh --api-only",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject"

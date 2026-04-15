@@ -1,3 +1,4 @@
 graphrag~=2.2.0
 fastapi~=0.112.0
 uvicorn~=0.30.5
+pyyaml>=6.0
