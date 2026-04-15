@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) Yan-Ying Liao
+Copyright (c) Yan-Ying Liao (original graphrag-api)
+Copyright (c) 2026 Yanlong Peng (multi-datasource, config.yaml integration, API enhancements)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
