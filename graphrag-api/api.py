@@ -13,8 +13,25 @@ import uvicorn
 import yaml
 import os
 import sys
+import logging
 from pathlib import Path
 from typing import Optional
+
+# Logging: DEBUG to file, INFO to console
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+_console = logging.StreamHandler()
+_console.setLevel(logging.INFO)
+_console.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+logger.addHandler(_console)
+
+_log_dir = Path(__file__).parent / "logs"
+_log_dir.mkdir(exist_ok=True)
+_file = logging.FileHandler(_log_dir / "debug.log", mode="w", encoding="utf-8")
+_file.setLevel(logging.DEBUG)
+_file.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+logger.addHandler(_file)
 
 from utils import process_context_data
 
@@ -42,12 +59,17 @@ def apply_model_config(graphrag_config: GraphRagConfig, yaml_config: dict) -> Gr
     embedding_model = models_cfg.get("embedding_model", "")
 
     if api_base:
-        if hasattr(graphrag_config, "llm"):
-            graphrag_config.llm.api_base = api_base
-            graphrag_config.llm.model = chat_model
-        if hasattr(graphrag_config, "embeddings"):
-            graphrag_config.embeddings.llm.api_base = api_base
-            graphrag_config.embeddings.llm.model = embedding_model
+        for cfg in graphrag_config.completion_models.values():
+            cfg.api_base = api_base
+            cfg.model_provider = "openai"
+            if chat_model:
+                cfg.model = chat_model
+        for cfg in graphrag_config.embedding_models.values():
+            cfg.api_base = api_base
+            cfg.model_provider = "openai"
+            cfg.call_args = {**cfg.call_args, "encoding_format": "float"}
+            if embedding_model:
+                cfg.model = embedding_model
 
     return graphrag_config
 
