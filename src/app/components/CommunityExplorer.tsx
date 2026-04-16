@@ -559,6 +559,11 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
                     {selectedNode.report.findings?.length > 0 && (
                       <Box sx={{ mt: 1 }}>
                         <Typography variant="subtitle2" fontWeight="bold">Findings:</Typography>
+                        <Typography>Human Readable ID: {selectedNode.community.human_readable_id}</Typography>
+                        <Typography>Level: {selectedNode.community.level}</Typography>
+                        <Typography>Size: {selectedNode.community.size}</Typography>
+                        <Typography>Entities: {selectedNode.community.entity_ids?.length || 0}</Typography>
+                        <Typography>Text Units: {selectedNode.community.text_unit_ids?.length || 0}</Typography>
                         {selectedNode.report.findings.map((f, i) => (
                           <Box key={i} sx={{ ml: 2, mb: 1 }}>
                             <Typography variant="body2" fontWeight="bold">{f.summary}</Typography>
@@ -576,6 +581,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
                 ) : (
                   <>
                     <Typography>Community: {selectedNode.community.community}</Typography>
+                    <Typography>Human Readable ID: {selectedNode.community.human_readable_id}</Typography>
                     <Typography>Level: {selectedNode.community.level}</Typography>
                     <Typography>Size: {selectedNode.community.size}</Typography>
                     <Typography>Entities: {selectedNode.community.entity_ids?.length || 0}</Typography>
@@ -590,14 +596,12 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
             <Card>
               <CardContent>
                 <Typography>ID: {selectedNode.entity.id}</Typography>
+                <Typography>Human Readable ID: {selectedNode.entity.human_readable_id}</Typography>
                 <Typography>Title: {selectedNode.entity.title}</Typography>
                 <Typography>
                   Type: <Chip label={selectedNode.entity.type} size="small" />
                 </Typography>
                 <Typography>Description: {selectedNode.entity.description}</Typography>
-                {selectedNode.entity.human_readable_id != null && (
-                  <Typography>Human Readable ID: {selectedNode.entity.human_readable_id}</Typography>
-                )}
                 {selectedNode.entity.text_unit_ids?.length > 0 && (
                   <Typography>Text Unit IDs: {selectedNode.entity.text_unit_ids.join(", ")}</Typography>
                 )}
@@ -609,6 +613,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
             <Card>
               <CardContent>
                 <Typography>ID: {selectedNode.textunit.id}</Typography>
+                <Typography>Human Readable ID: {selectedNode.textunit.human_readable_id}</Typography>
                 <Typography>Tokens: {selectedNode.textunit.n_tokens}</Typography>
                 <Typography sx={{ whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto" }}>
                   Text: {selectedNode.textunit.text}
