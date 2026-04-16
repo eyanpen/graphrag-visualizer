@@ -470,6 +470,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         </Breadcrumbs>
         <Typography variant="caption" color="text.secondary">
           Nodes: {graphData.nodes.length} | Links: {graphData.links.length}
+          {currentCommunity && ` | ID: ${currentCommunity.human_readable_id}`}
         </Typography>
         <ToggleButtonGroup
           value={labelMode}
