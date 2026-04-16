@@ -8,6 +8,7 @@ import useFileHandler from "../hooks/useFileHandler";
 import useGraphData from "../hooks/useGraphData";
 import DataTableContainer from "./DataTableContainer";
 import Statistics from "./Statistics";
+import CommunityExplorer from "./CommunityExplorer";
 import ReactGA from "react-ga4";
 import agent from "../api/agent";
 
@@ -121,6 +122,9 @@ const GraphDataHandler: React.FC = () => {
       case "/statistics":
         setTabIndex(3);
         break;
+      case "/communities":
+        setTabIndex(4);
+        break;
       default:
         setTabIndex(0);
     }
@@ -152,6 +156,7 @@ const GraphDataHandler: React.FC = () => {
     if (newValue === 1) path = "/graph";
     if (newValue === 2) path = "/data";
     if (newValue === 3) path = "/statistics";
+    if (newValue === 4) path = "/communities";
     navigate(path);
     ReactGA.send({
       hitType: "event",
@@ -176,6 +181,7 @@ const GraphDataHandler: React.FC = () => {
         <Tab label="Graph Visualization" />
         <Tab label="Data Tables" />
         <Tab label="Statistics" />
+        <Tab label="Community Explorer" />
       </Tabs>
       {tabIndex === 0 && (
         <Container
@@ -271,6 +277,17 @@ const GraphDataHandler: React.FC = () => {
           communityReports={communityReports}
           covariates={covariates}
         />
+      )}
+
+      {tabIndex === 4 && (
+        <Box sx={{ height: "calc(100vh - 64px)", width: "100%" }}>
+          <CommunityExplorer
+            entities={entities}
+            relationships={relationships}
+            communities={communities}
+            communityReports={communityReports}
+          />
+        </Box>
       )}
     </>
   );

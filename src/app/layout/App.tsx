@@ -125,6 +125,7 @@ const App: React.FC = () => {
             <Route path="/graph" element={<GraphDataHandler />} />{" "}
             <Route path="/data" element={<GraphDataHandler />} />{" "}
             <Route path="/statistics" element={<GraphDataHandler />} />{" "}
+            <Route path="/communities" element={<GraphDataHandler />} />{" "}
             <Route path="*" element={<Navigate to="/upload" replace />} />{" "}
           </Routes>
 
