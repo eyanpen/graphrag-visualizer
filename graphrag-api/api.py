@@ -376,6 +376,7 @@ async def basic_search(query: str = Query(..., description="Basic Search")):
         response, context = await api.basic_search(
             config=app.state.config,
             text_units=data["text_units"],
+            response_type=RESPONSE_TYPE,
             query=query,
         )
         response_dict = {
