@@ -44,6 +44,10 @@ const useFileHandler = () => {
   const loadFromApi = async () => {
     setLoading(true);
     try {
+      // Cache-bust: append timestamp so the browser doesn't serve stale parquet files
+      // after a data-source switch (the URL path stays the same).
+      const cacheBuster = Date.now();
+
       // Get list of available parquet files from the API
       const { files } = await agent.DataSources.listParquetFiles();
 
@@ -61,7 +65,7 @@ const useFileHandler = () => {
 
         try {
           // Download parquet file as ArrayBuffer from API
-          const buffer = await agent.DataSources.getParquetFile(filename);
+          const buffer = await agent.DataSources.getParquetFile(filename, cacheBuster);
           const blob = new Blob([buffer], { type: "application/x-parquet" });
           const file = new File([blob], filename);
           const data = await readParquetFile(file, schema);

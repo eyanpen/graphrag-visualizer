@@ -248,11 +248,13 @@ async def get_parquet_file(filename: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File '{filename}' not found")
 
-    return FileResponse(
+    response = FileResponse(
         path=str(file_path),
         media_type="application/octet-stream",
         filename=filename,
     )
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.get("/api/parquet")
@@ -276,7 +278,9 @@ async def list_parquet_files():
     for f in output_path.glob("*.parquet"):
         files.append(f.name)
 
-    return JSONResponse(content={"files": sorted(files)})
+    response = JSONResponse(content={"files": sorted(files)})
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ============================================================

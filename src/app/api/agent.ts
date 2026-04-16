@@ -91,8 +91,9 @@ const DataSources = {
   list: (): Promise<{ data_sources: DataSourceInfo[] }> => requests.get('api/datasources'),
   switch: (name: string) => requests.post('api/datasources/switch', undefined, new URLSearchParams({ name })),
   current: (): Promise<{ current_source: string }> => requests.get('api/datasources/current'),
-  listParquetFiles: (): Promise<{ files: string[] }> => requests.get('api/parquet'),
-  getParquetFile: (filename: string): Promise<ArrayBuffer> => requests.getBlob(`api/parquet/${filename}`),
+  listParquetFiles: (): Promise<{ files: string[] }> => requests.get(`api/parquet?_t=${Date.now()}`),
+  getParquetFile: (filename: string, cacheBuster?: number): Promise<ArrayBuffer> =>
+    requests.getBlob(`api/parquet/${filename}${cacheBuster ? `?_t=${cacheBuster}` : ''}`),
 };
 
 const Status = {

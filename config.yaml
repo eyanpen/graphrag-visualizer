@@ -28,3 +28,6 @@ data_sources:
   - name: "graphrag-example"
     path: "/home/eyanpen/sourceCode/rnd-ai-engine-features/examples/graphrag-example/default_prompts_output/output/"
     description: "GraphRAG Example Dataset"
+  - name: "graphrag-auto-prompt-tune"
+    path: "/home/eyanpen/sourceCode/rnd-ai-engine-features/examples/graphrag-example/output/"
+    description: "GraphRAG Example Dataset"
