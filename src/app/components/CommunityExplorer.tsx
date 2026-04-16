@@ -64,6 +64,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
   ]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [selectedLink, setSelectedLink] = useState<Relationship | null>(null);
   const [labelMode, setLabelMode] = useState<"auto" | "on" | "off">("auto");
   const graphRef = useRef<any>();
 
@@ -80,6 +81,12 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
   const entityTitleToId = useMemo(() => {
     const m = new Map<string, string>();
     entities.forEach((e) => m.set(e.title, e.id));
+    return m;
+  }, [entities]);
+
+  const entityTitleToType = useMemo(() => {
+    const m = new Map<string, string>();
+    entities.forEach((e) => m.set(e.title, e.type));
     return m;
   }, [entities]);
 
@@ -302,17 +309,58 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
           lastClickRef.current = { id: node.id, time: now };
           setTimeout(() => {
             if (lastClickRef.current.id === node.id && lastClickRef.current.time === now) {
+              setSelectedLink(null);
               setSelectedNode(node);
               setDrawerOpen(true);
             }
           }, 400);
         }
       } else {
+        setSelectedLink(null);
         setSelectedNode(node);
         setDrawerOpen(true);
       }
     },
     []
+  );
+
+  const handleLinkClick = useCallback(
+    (link: any) => {
+      // link.source/target are GraphNode objects after d3 simulation
+      const srcNode: GraphNode | undefined =
+        typeof link.source === "object" ? link.source : graphData.nodes.find((n) => n.id === link.source);
+      const tgtNode: GraphNode | undefined =
+        typeof link.target === "object" ? link.target : graphData.nodes.find((n) => n.id === link.target);
+
+      // Try to find the full Relationship object
+      if (srcNode?.entity && tgtNode?.entity) {
+        const rel = relationships.find(
+          (r) => r.source === srcNode.entity!.title && r.target === tgtNode.entity!.title
+        );
+        if (rel) {
+          setSelectedNode(null);
+          setSelectedLink(rel);
+          setDrawerOpen(true);
+          return;
+        }
+      }
+
+      // Fallback: show basic link info via a synthetic relationship
+      setSelectedNode(null);
+      setSelectedLink({
+        id: link.id || "",
+        human_readable_id: 0,
+        source: srcNode?.name || String(link.source),
+        target: tgtNode?.name || String(link.target),
+        description: link.type || "",
+        weight: 0,
+        combined_degree: 0,
+        text_unit_ids: [],
+        type: link.type || "RELATED",
+      });
+      setDrawerOpen(true);
+    },
+    [graphData.nodes, relationships]
   );
 
   const handleBreadcrumbClick = (index: number) => {
@@ -451,6 +499,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
           nodeCanvasObject={paintNode}
           nodeCanvasObjectMode={() => "replace"}
           onNodeClick={handleNodeClick as any}
+          onLinkClick={handleLinkClick}
           backgroundColor={getBackgroundColor()}
           linkColor={() => (theme.palette.mode === "dark" ? "gray" : "lightgray")}
           linkWidth={1}
@@ -473,6 +522,21 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
               {selectedNode?.type === "community" && `Community: ${selectedNode.name}`}
               {selectedNode?.type === "entity" && `Entity: ${selectedNode.entity?.title}`}
               {selectedNode?.type === "textunit" && `Text Unit: ${selectedNode.textunit?.id}`}
+              {selectedLink && (
+                <>
+                  {"(:"}
+                  {entityTitleToType.get(selectedLink.source) || "ENTITY"}
+                  {" {name: '"}
+                  {selectedLink.source}
+                  {"'})-[:"}
+                  {selectedLink.type || "RELATED"}
+                  {"]->(:"} 
+                  {entityTitleToType.get(selectedLink.target) || "ENTITY"}
+                  {" {name: '"}
+                  {selectedLink.target}
+                  {"'})"}
+                </>
+              )}
             </Typography>
             <IconButton onClick={() => setDrawerOpen(false)}>
               <CloseIcon />
@@ -551,6 +615,30 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
                 </Typography>
                 {selectedNode.textunit.document_ids?.length > 0 && (
                   <Typography>Document IDs: {selectedNode.textunit.document_ids.join(", ")}</Typography>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedLink && (
+            <Card>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight="bold">Relationship Information</Typography>
+                <Typography>ID: {selectedLink.id}</Typography>
+                <Typography>Source: {selectedLink.source}</Typography>
+                <Typography>Target: {selectedLink.target}</Typography>
+                <Typography>Type: {selectedLink.type}</Typography>
+                {selectedLink.description && (
+                  <Typography>Description: {selectedLink.description}</Typography>
+                )}
+                {selectedLink.weight > 0 && (
+                  <Typography>Weight: {selectedLink.weight}</Typography>
+                )}
+                {selectedLink.human_readable_id > 0 && (
+                  <Typography>Human Readable ID: {selectedLink.human_readable_id}</Typography>
+                )}
+                {selectedLink.text_unit_ids?.length > 0 && (
+                  <Typography>Text Unit IDs: {selectedLink.text_unit_ids.join(", ")}</Typography>
                 )}
               </CardContent>
             </Card>
