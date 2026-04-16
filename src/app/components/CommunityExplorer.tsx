@@ -273,10 +273,27 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
     }
   }, [graphData]);
 
+  const lastClickRef = useRef<{ id: string; time: number }>({ id: "", time: 0 });
+
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
+      const now = Date.now();
+      const last = lastClickRef.current;
       if (node.type === "community" && node.community) {
-        setPath((prev) => [...prev, { id: node.community!.community, label: node.name }]);
+        if (last.id === node.id && now - last.time < 400) {
+          // Double click: drill down
+          setPath((prev) => [...prev, { id: node.community!.community, label: node.name }]);
+          lastClickRef.current = { id: "", time: 0 };
+        } else {
+          // Single click: show details (delayed to allow double-click detection)
+          lastClickRef.current = { id: node.id, time: now };
+          setTimeout(() => {
+            if (lastClickRef.current.id === node.id && lastClickRef.current.time === now) {
+              setSelectedNode(node);
+              setDrawerOpen(true);
+            }
+          }, 400);
+        }
       } else {
         setSelectedNode(node);
         setDrawerOpen(true);
@@ -440,6 +457,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         <Box sx={{ width: "100%", p: 3 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
             <Typography variant="h6" fontWeight="bold">
+              {selectedNode?.type === "community" && `Community: ${selectedNode.name}`}
               {selectedNode?.type === "entity" && `Entity: ${selectedNode.entity?.title}`}
               {selectedNode?.type === "textunit" && `Text Unit: ${selectedNode.textunit?.id}`}
             </Typography>
@@ -447,6 +465,49 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
               <CloseIcon />
             </IconButton>
           </Box>
+
+          {selectedNode?.type === "community" && selectedNode.community && (
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
+                {selectedNode.report ? (
+                  <>
+                    <Typography variant="subtitle1" fontWeight="bold">Community Report</Typography>
+                    <Typography>Title: {selectedNode.report.title}</Typography>
+                    <Typography>Summary: {selectedNode.report.summary}</Typography>
+                    <Typography>Level: {selectedNode.report.level}</Typography>
+                    <Typography>Rank: {selectedNode.report.rank}</Typography>
+                    {selectedNode.report.rank_explanation && (
+                      <Typography>Rank Explanation: {selectedNode.report.rank_explanation}</Typography>
+                    )}
+                    {selectedNode.report.findings?.length > 0 && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" fontWeight="bold">Findings:</Typography>
+                        {selectedNode.report.findings.map((f, i) => (
+                          <Box key={i} sx={{ ml: 2, mb: 1 }}>
+                            <Typography variant="body2" fontWeight="bold">{f.summary}</Typography>
+                            <Typography variant="body2">{f.explanation}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                    {selectedNode.report.full_content && (
+                      <Typography sx={{ whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto", mt: 1 }}>
+                        {selectedNode.report.full_content}
+                      </Typography>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Typography>Community: {selectedNode.community.community}</Typography>
+                    <Typography>Level: {selectedNode.community.level}</Typography>
+                    <Typography>Size: {selectedNode.community.size}</Typography>
+                    <Typography>Entities: {selectedNode.community.entity_ids?.length || 0}</Typography>
+                    <Typography>Text Units: {selectedNode.community.text_unit_ids?.length || 0}</Typography>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {selectedNode?.type === "entity" && selectedNode.entity && (
             <Card>

@@ -1,6 +1,7 @@
 # GraphRAG Visualizer
 
 ![demo](public/demo.png)
+![demo](public/image.png)
 
 ## Overview
 
@@ -12,6 +13,8 @@ Originally created by [Yan-Ying Liao](https://github.com/noworneverev/graphrag-v
 
 - **Graph Visualization**: 2D / 3D interactive graph view.
 - **Data Tables**: Browse parquet data in tabular form.
+- **Statistics**: Overview of data totals and type breakdowns for entities, relationships, and communities. Click any type to see all items, click an item to view details.
+- **Community Explorer**: Hierarchical drill-down graph of communities. Navigate the community tree from top-level down to individual entities and text units. Single-click a community to view its report; double-click to drill into children. Includes label toggle (Auto/On/Off) and force-directed layout with isolated node centering.
 - **Integrated Search**: Local, Global, DRIFT, and Basic search via the built-in API server.
 - **Multi-Datasource**: Configure multiple GraphRAG output directories in `config.yaml` and switch between them at runtime.
 - **Unified Configuration**: Single `config.yaml` for server ports, model endpoints, search parameters, and data sources — no `.env` files needed.
@@ -99,8 +102,10 @@ The `models` section configures the LLM and embedding models used for search:
 │    Selector         │     │  - /api/parquet/*     │
 │  - Graph Viewer     │     │  - /search/local      │
 │  - Data Tables      │     │  - /search/global     │
-│  - Search UI        │     │  - /search/drift      │
-│                     │     │  - /search/basic      │
+│  - Statistics       │     │  - /search/drift      │
+│  - Community        │     │  - /search/basic      │
+│    Explorer         │     │                       │
+│  - Search UI        │     │                       │
 └─────────────────────┘     └──────────────────────┘
                                       │
                               ┌───────┴───────┐
