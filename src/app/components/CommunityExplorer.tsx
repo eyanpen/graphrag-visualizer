@@ -9,10 +9,14 @@ import {
   Drawer,
   IconButton,
   Link,
+  Paper,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
   useTheme,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import { forceX, forceY } from "d3-force-3d";
 import { Entity } from "../models/entity";
 import { Relationship } from "../models/relationship";
 import { Community } from "../models/community";
@@ -60,6 +64,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
   ]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [labelMode, setLabelMode] = useState<"auto" | "on" | "off">("auto");
   const graphRef = useRef<any>();
 
   const currentParentId = path[path.length - 1].id;
@@ -150,7 +155,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
       const nodeId = `c-${c.community}`;
       nodes.push({
         id: nodeId,
-        name: c.title || report?.title || `Community ${c.community}`,
+        name: report?.title || c.title || `Community ${c.community}`,
         type: "community",
         community: c,
         report,
@@ -251,7 +256,20 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
 
   useEffect(() => {
     if (graphRef.current && graphData.nodes.length > 0) {
-      setTimeout(() => graphRef.current.zoomToFit(400, 50), 300);
+      graphRef.current.d3Force("charge").strength(-300).distanceMax(500);
+      graphRef.current.d3Force("link")?.distance(150);
+      // Pull isolated nodes toward center
+      const isolatedIds = new Set(
+        graphData.nodes
+          .filter((n) => !graphData.links.some(
+            (l: any) => (l.source?.id ?? l.source) === n.id || (l.target?.id ?? l.target) === n.id
+          ))
+          .map((n) => n.id)
+      );
+      graphRef.current.d3Force("pullX", forceX(0).strength((node: any) => isolatedIds.has(node.id) ? 0.3 : 0.01));
+      graphRef.current.d3Force("pullY", forceY(0).strength((node: any) => isolatedIds.has(node.id) ? 0.3 : 0.01));
+      graphRef.current.d3ReheatSimulation();
+      setTimeout(() => graphRef.current.zoomToFit(400, 50), 500);
     }
   }, [graphData]);
 
@@ -274,6 +292,8 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
   const getBackgroundColor = () =>
     theme.palette.mode === "dark" ? "#000000" : "#FFFFFF";
 
+  const showLabels = labelMode === "on" || (labelMode === "auto" && graphData.nodes.length <= 10);
+
   const paintNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D) => {
       if (node.type === "community") {
@@ -283,7 +303,6 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         ctx.fillStyle = "#ff9800";
         ctx.fill();
 
-        // Count inside circle
         const countStr = String(node.count ?? 0);
         ctx.font = `bold 6px Sans-Serif`;
         ctx.fillStyle = "#fff";
@@ -291,11 +310,12 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         ctx.textBaseline = "middle";
         ctx.fillText(countStr, node.x, node.y);
 
-        // Label below
-        ctx.font = `5px Sans-Serif`;
-        ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
-        ctx.textBaseline = "top";
-        ctx.fillText(node.name || "", node.x, node.y + r + 2);
+        if (showLabels) {
+          ctx.font = `5px Sans-Serif`;
+          ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
+          ctx.textBaseline = "top";
+          ctx.fillText(node.name || "", node.x, node.y + r + 2);
+        }
       } else if (node.type === "textunit") {
         const r = NODE_R * 0.8;
         ctx.beginPath();
@@ -303,11 +323,13 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         ctx.fillStyle = "#66bb6a";
         ctx.fill();
 
-        ctx.font = `3.5px Sans-Serif`;
-        ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.fillText(node.name || "", node.x, node.y + r + 1);
+        if (showLabels) {
+          ctx.font = `3.5px Sans-Serif`;
+          ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.fillText(node.name || "", node.x, node.y + r + 1);
+        }
       } else {
         const r = NODE_R;
         ctx.beginPath();
@@ -315,14 +337,16 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         ctx.fillStyle = node.color || "#4fc3f7";
         ctx.fill();
 
-        ctx.font = `4px Sans-Serif`;
-        ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.fillText(node.name || "", node.x, node.y + r + 2);
+        if (showLabels) {
+          ctx.font = `4px Sans-Serif`;
+          ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.fillText(node.name || "", node.x, node.y + r + 2);
+        }
       }
     },
-    [theme.palette.mode]
+    [theme.palette.mode, showLabels]
   );
 
   return (
@@ -369,6 +393,17 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         <Typography variant="caption" color="text.secondary">
           Nodes: {graphData.nodes.length} | Links: {graphData.links.length}
         </Typography>
+        <ToggleButtonGroup
+          value={labelMode}
+          exclusive
+          size="small"
+          onChange={(_, v) => v && setLabelMode(v)}
+          sx={{ mt: 0.5 }}
+        >
+          <ToggleButton value="auto">Auto</ToggleButton>
+          <ToggleButton value="on">Labels</ToggleButton>
+          <ToggleButton value="off">Off</ToggleButton>
+        </ToggleButtonGroup>
       </Box>
 
       {graphData.nodes.length === 0 ? (
@@ -389,6 +424,9 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
           backgroundColor={getBackgroundColor()}
           linkColor={() => (theme.palette.mode === "dark" ? "gray" : "lightgray")}
           linkWidth={1}
+          d3VelocityDecay={0.3}
+          d3AlphaDecay={0.01}
+          onEngineStop={() => graphRef.current?.zoomToFit(400, 50)}
         />
       )}
 
