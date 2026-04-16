@@ -286,6 +286,7 @@ const GraphDataHandler: React.FC = () => {
             relationships={relationships}
             communities={communities}
             communityReports={communityReports}
+            textunits={textunits}
           />
         </Box>
       )}

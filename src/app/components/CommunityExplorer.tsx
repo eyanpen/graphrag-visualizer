@@ -17,28 +17,32 @@ import { Entity } from "../models/entity";
 import { Relationship } from "../models/relationship";
 import { Community } from "../models/community";
 import { CommunityReport } from "../models/community-report";
+import { TextUnit } from "../models/text-unit";
 
 interface CommunityExplorerProps {
   entities: Entity[];
   relationships: Relationship[];
   communities: Community[];
   communityReports: CommunityReport[];
+  textunits: TextUnit[];
 }
 
 interface GraphNode {
   id: string;
   name: string;
-  type: "community" | "entity";
+  type: "community" | "entity" | "textunit";
   community?: Community;
   entity?: Entity;
+  textunit?: TextUnit;
   report?: CommunityReport;
   val?: number;
-  color?: string;
+  count?: number; // element count for community nodes
 }
 
 interface GraphLink {
   source: string;
   target: string;
+  type?: string;
 }
 
 const NODE_R = 8;
@@ -48,14 +52,14 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
   relationships,
   communities,
   communityReports,
+  textunits,
 }) => {
   const theme = useTheme();
-  // Navigation path: array of { community, label } for breadcrumbs
   const [path, setPath] = useState<{ id: number | null; label: string }[]>([
     { id: null, label: "Top Level" },
   ]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const graphRef = useRef<any>();
 
   const currentParentId = path[path.length - 1].id;
@@ -67,134 +71,188 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
     return m;
   }, [entities]);
 
+  // Entity title -> entity id lookup (relationships use title as source/target)
+  const entityTitleToId = useMemo(() => {
+    const m = new Map<string, string>();
+    entities.forEach((e) => m.set(e.title, e.id));
+    return m;
+  }, [entities]);
+
+  const textunitMap = useMemo(() => {
+    const m = new Map<string, TextUnit>();
+    textunits.forEach((t) => m.set(t.id, t));
+    return m;
+  }, [textunits]);
+
+  const relationshipMap = useMemo(() => {
+    const m = new Map<string, Relationship>();
+    relationships.forEach((r) => m.set(r.id, r));
+    return m;
+  }, [relationships]);
+
   const reportMap = useMemo(() => {
     const m = new Map<number, CommunityReport>();
     communityReports.forEach((r) => m.set(r.community, r));
     return m;
   }, [communityReports]);
 
-  // Find max level (top level)
   const maxLevel = useMemo(
     () => Math.max(...communities.map((c) => c.level), 0),
     [communities]
   );
 
-  // Determine children of current view
   const childCommunities = useMemo(() => {
     if (currentParentId === null) {
-      // Top level: communities at max level (no parent or parent not in dataset)
       return communities.filter((c) => c.level === maxLevel);
     }
     return communities.filter((c) => c.parent === currentParentId);
   }, [communities, currentParentId, maxLevel]);
 
-  // Entities that belong to current community but not to any child community
-  const leafEntities = useMemo(() => {
-    if (currentParentId === null) return [];
-    const current = communities.find((c) => c.community === currentParentId);
-    if (!current) return [];
+  // Current community object
+  const currentCommunity = useMemo(() => {
+    if (currentParentId === null) return null;
+    return communities.find((c) => c.community === currentParentId) || null;
+  }, [communities, currentParentId]);
 
-    // Collect entity_ids from child communities
+  // Entities belonging to current community (not claimed by child communities)
+  const currentEntities = useMemo(() => {
+    if (!currentCommunity) return [];
     const childEntityIds = new Set<string>();
     childCommunities.forEach((child) => {
       child.entity_ids?.forEach((eid) => childEntityIds.add(eid));
     });
-
-    // Entities in current community but not in any child
-    return (current.entity_ids || [])
+    return (currentCommunity.entity_ids || [])
       .filter((eid) => !childEntityIds.has(eid))
       .map((eid) => entityMap.get(eid))
       .filter((e): e is Entity => !!e);
-  }, [currentParentId, communities, childCommunities, entityMap]);
+  }, [currentCommunity, childCommunities, entityMap]);
 
-  // Build graph data for current view
+  // Text units belonging to current community (not claimed by child communities)
+  const currentTextUnits = useMemo(() => {
+    if (!currentCommunity) return [];
+    const childTextUnitIds = new Set<string>();
+    childCommunities.forEach((child) => {
+      child.text_unit_ids?.forEach((tid) => childTextUnitIds.add(tid));
+    });
+    return (currentCommunity.text_unit_ids || [])
+      .filter((tid) => !childTextUnitIds.has(tid))
+      .map((tid) => textunitMap.get(tid))
+      .filter((t): t is TextUnit => !!t);
+  }, [currentCommunity, childCommunities, textunitMap]);
+
+  // Build graph data
   const graphData = useMemo(() => {
     const nodes: GraphNode[] = [];
     const links: GraphLink[] = [];
+    const nodeIdSet = new Set<string>();
 
-    if (childCommunities.length > 0) {
-      // Show child communities as nodes
-      childCommunities.forEach((c) => {
-        const report = reportMap.get(c.community);
-        nodes.push({
-          id: `c-${c.community}`,
-          name: c.title || report?.title || `Community ${c.community}`,
-          type: "community",
-          community: c,
-          report,
-          val: c.size || 1,
-        });
+    // Child community nodes
+    childCommunities.forEach((c) => {
+      const report = reportMap.get(c.community);
+      const childCount = communities.filter((cc) => cc.parent === c.community).length;
+      const count = childCount + (c.entity_ids?.length || 0) + (c.text_unit_ids?.length || 0);
+      const nodeId = `c-${c.community}`;
+      nodes.push({
+        id: nodeId,
+        name: c.title || report?.title || `Community ${c.community}`,
+        type: "community",
+        community: c,
+        report,
+        val: c.size || 1,
+        count,
+      });
+      nodeIdSet.add(nodeId);
+    });
+
+    // Entity nodes for current community
+    currentEntities.forEach((e) => {
+      const nodeId = `e-${e.id}`;
+      nodes.push({
+        id: nodeId,
+        name: e.title,
+        type: "entity",
+        entity: e,
+        val: 1,
+      });
+      nodeIdSet.add(nodeId);
+    });
+
+    // Text unit nodes for current community
+    currentTextUnits.forEach((t) => {
+      const nodeId = `t-${t.id}`;
+      nodes.push({
+        id: nodeId,
+        name: `TU ${t.human_readable_id}`,
+        type: "textunit",
+        textunit: t,
+        val: 1,
+      });
+      nodeIdSet.add(nodeId);
+    });
+
+    // Use relationship_ids from current community to create links
+    if (currentCommunity) {
+      const relIds = currentCommunity.relationship_ids || [];
+      relIds.forEach((rid) => {
+        const rel = relationshipMap.get(rid);
+        if (!rel) return;
+
+        // Resolve source/target (relationship uses entity title)
+        const srcEntityId = entityTitleToId.get(rel.source);
+        const tgtEntityId = entityTitleToId.get(rel.target);
+        if (!srcEntityId || !tgtEntityId) return;
+
+        const srcNodeId = `e-${srcEntityId}`;
+        const tgtNodeId = `e-${tgtEntityId}`;
+
+        if (nodeIdSet.has(srcNodeId) && nodeIdSet.has(tgtNodeId)) {
+          links.push({ source: srcNodeId, target: tgtNodeId, type: rel.description });
+        }
       });
 
-      // Links between communities that share relationships
+      // Text unit -> entity links (HAS_ENTITY)
+      currentTextUnits.forEach((t) => {
+        const tuNodeId = `t-${t.id}`;
+        (t.entity_ids || []).forEach((eid) => {
+          const eNodeId = `e-${eid}`;
+          if (nodeIdSet.has(eNodeId)) {
+            links.push({ source: tuNodeId, target: eNodeId, type: "HAS_ENTITY" });
+          }
+        });
+      });
+    }
+
+    // Community-to-community links (shared relationships across entity sets)
+    if (childCommunities.length > 1) {
       const communityEntitySets = new Map<string, Set<string>>();
       childCommunities.forEach((c) => {
         communityEntitySets.set(`c-${c.community}`, new Set(c.entity_ids || []));
       });
-
-      // Create links between communities that share entity connections via relationships
-      const communityIds = childCommunities.map((c) => `c-${c.community}`);
-      for (let i = 0; i < communityIds.length; i++) {
-        for (let j = i + 1; j < communityIds.length; j++) {
-          const setA = communityEntitySets.get(communityIds[i])!;
-          const setB = communityEntitySets.get(communityIds[j])!;
-          // Check if any relationship connects entities across these two communities
-          const hasConnection = relationships.some(
-            (r) =>
-              (setA.has(r.source) && setB.has(r.target)) ||
-              (setB.has(r.source) && setA.has(r.target))
+      const cIds = childCommunities.map((c) => `c-${c.community}`);
+      for (let i = 0; i < cIds.length; i++) {
+        for (let j = i + 1; j < cIds.length; j++) {
+          const setA = communityEntitySets.get(cIds[i])!;
+          const setB = communityEntitySets.get(cIds[j])!;
+          const hasConn = relationships.some(
+            (r) => {
+              const srcId = entityTitleToId.get(r.source);
+              const tgtId = entityTitleToId.get(r.target);
+              return srcId && tgtId && (
+                (setA.has(srcId) && setB.has(tgtId)) ||
+                (setB.has(srcId) && setA.has(tgtId))
+              );
+            }
           );
-          if (hasConnection) {
-            links.push({ source: communityIds[i], target: communityIds[j] });
+          if (hasConn) {
+            links.push({ source: cIds[i], target: cIds[j] });
           }
         }
       }
     }
 
-    // If we're inside a community, also show leaf entities
-    if (currentParentId !== null) {
-      const nodeIdSet = new Set(nodes.map((n) => n.id));
-
-      leafEntities.forEach((e) => {
-        const nodeId = `e-${e.id}`;
-        nodes.push({
-          id: nodeId,
-          name: e.title,
-          type: "entity",
-          entity: e,
-          val: 1,
-        });
-        nodeIdSet.add(nodeId);
-      });
-
-      // Add entity-entity relationships within this view
-      const allEntityIds = new Set<string>();
-      leafEntities.forEach((e) => allEntityIds.add(e.title));
-      // Also include entities inside child communities for cross-links
-      childCommunities.forEach((c) => {
-        c.entity_ids?.forEach((eid) => {
-          const ent = entityMap.get(eid);
-          if (ent) allEntityIds.add(ent.title);
-        });
-      });
-
-      // Entity-to-entity links (only between leaf entities in this view)
-      const leafTitles = new Set(leafEntities.map((e) => e.title));
-      relationships.forEach((r) => {
-        if (leafTitles.has(r.source) && leafTitles.has(r.target)) {
-          const srcId = `e-${entities.find((e) => e.title === r.source)?.id}`;
-          const tgtId = `e-${entities.find((e) => e.title === r.target)?.id}`;
-          if (nodeIdSet.has(srcId) && nodeIdSet.has(tgtId)) {
-            links.push({ source: srcId, target: tgtId });
-          }
-        }
-      });
-    }
-
     return { nodes, links };
-  }, [childCommunities, leafEntities, relationships, entities, entityMap, reportMap, currentParentId]);
+  }, [childCommunities, currentEntities, currentTextUnits, currentCommunity, relationships, relationshipMap, entityTitleToId, reportMap, communities, textunits]);
 
-  // Zoom to fit when graph data changes
   useEffect(() => {
     if (graphRef.current && graphData.nodes.length > 0) {
       setTimeout(() => graphRef.current.zoomToFit(400, 50), 300);
@@ -204,11 +262,9 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
       if (node.type === "community" && node.community) {
-        // Drill into this community
-        const label = node.name;
-        setPath((prev) => [...prev, { id: node.community!.community, label }]);
-      } else if (node.type === "entity" && node.entity) {
-        setSelectedEntity(node.entity);
+        setPath((prev) => [...prev, { id: node.community!.community, label: node.name }]);
+      } else {
+        setSelectedNode(node);
         setDrawerOpen(true);
       }
     },
@@ -224,20 +280,51 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
 
   const paintNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D) => {
-      const r = node.type === "community" ? NODE_R * 1.5 : NODE_R;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = node.type === "community" ? "#ff9800" : node.color || "#4fc3f7";
-      ctx.fill();
+      if (node.type === "community") {
+        const r = NODE_R * 1.5;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+        ctx.fillStyle = "#ff9800";
+        ctx.fill();
 
-      // Label
-      const label = node.name || "";
-      const fontSize = node.type === "community" ? 5 : 4;
-      ctx.font = `${fontSize}px Sans-Serif`;
-      ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-      ctx.fillText(label, node.x, node.y + r + 2);
+        // Count inside circle
+        const countStr = String(node.count ?? 0);
+        ctx.font = `bold 6px Sans-Serif`;
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(countStr, node.x, node.y);
+
+        // Label below
+        ctx.font = `5px Sans-Serif`;
+        ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
+        ctx.textBaseline = "top";
+        ctx.fillText(node.name || "", node.x, node.y + r + 2);
+      } else if (node.type === "textunit") {
+        const r = NODE_R * 0.8;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+        ctx.fillStyle = "#66bb6a";
+        ctx.fill();
+
+        ctx.font = `3.5px Sans-Serif`;
+        ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(node.name || "", node.x, node.y + r + 1);
+      } else {
+        const r = NODE_R;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+        ctx.fillStyle = node.color || "#4fc3f7";
+        ctx.fill();
+
+        ctx.font = `4px Sans-Serif`;
+        ctx.fillStyle = theme.palette.mode === "dark" ? "#fff" : "#000";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(node.name || "", node.x, node.y + r + 2);
+      }
     },
     [theme.palette.mode]
   );
@@ -252,7 +339,6 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         backgroundColor: getBackgroundColor(),
       }}
     >
-      {/* Breadcrumbs */}
       <Box
         sx={{
           position: "absolute",
@@ -310,7 +396,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         />
       )}
 
-      {/* Entity Detail Drawer */}
+      {/* Detail Drawer */}
       <Drawer
         anchor="bottom"
         open={drawerOpen}
@@ -320,26 +406,43 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         <Box sx={{ width: "100%", p: 3 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
             <Typography variant="h6" fontWeight="bold">
-              Node Details: {selectedEntity?.title}
+              {selectedNode?.type === "entity" && `Entity: ${selectedNode.entity?.title}`}
+              {selectedNode?.type === "textunit" && `Text Unit: ${selectedNode.textunit?.id}`}
             </Typography>
             <IconButton onClick={() => setDrawerOpen(false)}>
               <CloseIcon />
             </IconButton>
           </Box>
-          {selectedEntity && (
+
+          {selectedNode?.type === "entity" && selectedNode.entity && (
             <Card>
               <CardContent>
-                <Typography>ID: {selectedEntity.id}</Typography>
-                <Typography>Title: {selectedEntity.title}</Typography>
+                <Typography>ID: {selectedNode.entity.id}</Typography>
+                <Typography>Title: {selectedNode.entity.title}</Typography>
                 <Typography>
-                  Type: <Chip label={selectedEntity.type} size="small" />
+                  Type: <Chip label={selectedNode.entity.type} size="small" />
                 </Typography>
-                <Typography>Description: {selectedEntity.description}</Typography>
-                {selectedEntity.human_readable_id != null && (
-                  <Typography>Human Readable ID: {selectedEntity.human_readable_id}</Typography>
+                <Typography>Description: {selectedNode.entity.description}</Typography>
+                {selectedNode.entity.human_readable_id != null && (
+                  <Typography>Human Readable ID: {selectedNode.entity.human_readable_id}</Typography>
                 )}
-                {selectedEntity.text_unit_ids?.length > 0 && (
-                  <Typography>Text Unit IDs: {selectedEntity.text_unit_ids.join(", ")}</Typography>
+                {selectedNode.entity.text_unit_ids?.length > 0 && (
+                  <Typography>Text Unit IDs: {selectedNode.entity.text_unit_ids.join(", ")}</Typography>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {selectedNode?.type === "textunit" && selectedNode.textunit && (
+            <Card>
+              <CardContent>
+                <Typography>ID: {selectedNode.textunit.id}</Typography>
+                <Typography>Tokens: {selectedNode.textunit.n_tokens}</Typography>
+                <Typography sx={{ whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto" }}>
+                  Text: {selectedNode.textunit.text}
+                </Typography>
+                {selectedNode.textunit.document_ids?.length > 0 && (
+                  <Typography>Document IDs: {selectedNode.textunit.document_ids.join(", ")}</Typography>
                 )}
               </CardContent>
             </Card>
