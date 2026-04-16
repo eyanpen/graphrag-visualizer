@@ -212,9 +212,22 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
       });
 
       // Text unit -> entity links (HAS_ENTITY)
+      // Include entities from both entity_ids and relationship_ids
       currentTextUnits.forEach((t) => {
         const tuNodeId = `t-${t.id}`;
-        (t.entity_ids || []).forEach((eid) => {
+        const linkedEntityIds = new Set(t.entity_ids || []);
+
+        // Also resolve entities referenced by this text unit's relationships
+        (t.relationship_ids || []).forEach((rid) => {
+          const rel = relationshipMap.get(rid);
+          if (!rel) return;
+          const srcId = entityTitleToId.get(rel.source);
+          const tgtId = entityTitleToId.get(rel.target);
+          if (srcId) linkedEntityIds.add(srcId);
+          if (tgtId) linkedEntityIds.add(tgtId);
+        });
+
+        linkedEntityIds.forEach((eid) => {
           const eNodeId = `e-${eid}`;
           if (nodeIdSet.has(eNodeId)) {
             links.push({ source: tuNodeId, target: eNodeId, type: "HAS_ENTITY" });
