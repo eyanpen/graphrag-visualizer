@@ -122,31 +122,21 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
     return communities.find((c) => c.community === currentParentId) || null;
   }, [communities, currentParentId]);
 
-  // Entities belonging to current community (not claimed by child communities)
+  // Entities belonging to current community
   const currentEntities = useMemo(() => {
     if (!currentCommunity) return [];
-    const childEntityIds = new Set<string>();
-    childCommunities.forEach((child) => {
-      child.entity_ids?.forEach((eid) => childEntityIds.add(eid));
-    });
     return (currentCommunity.entity_ids || [])
-      .filter((eid) => !childEntityIds.has(eid))
       .map((eid) => entityMap.get(eid))
       .filter((e): e is Entity => !!e);
-  }, [currentCommunity, childCommunities, entityMap]);
+  }, [currentCommunity, entityMap]);
 
-  // Text units belonging to current community (not claimed by child communities)
+  // Text units belonging to current community
   const currentTextUnits = useMemo(() => {
     if (!currentCommunity) return [];
-    const childTextUnitIds = new Set<string>();
-    childCommunities.forEach((child) => {
-      child.text_unit_ids?.forEach((tid) => childTextUnitIds.add(tid));
-    });
     return (currentCommunity.text_unit_ids || [])
-      .filter((tid) => !childTextUnitIds.has(tid))
       .map((tid) => textunitMap.get(tid))
       .filter((t): t is TextUnit => !!t);
-  }, [currentCommunity, childCommunities, textunitMap]);
+  }, [currentCommunity, textunitMap]);
 
   // Build graph data
   const graphData = useMemo(() => {
@@ -270,6 +260,17 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
         }
       }
     }
+
+    // Entity -> child community links (IN_COMMUNITY)
+    childCommunities.forEach((c) => {
+      const cNodeId = `c-${c.community}`;
+      (c.entity_ids || []).forEach((eid) => {
+        const eNodeId = `e-${eid}`;
+        if (nodeIdSet.has(eNodeId)) {
+          links.push({ source: eNodeId, target: cNodeId, type: "IN_COMMUNITY" });
+        }
+      });
+    });
 
     return { nodes, links };
   }, [childCommunities, currentEntities, currentTextUnits, currentCommunity, relationships, relationshipMap, entityTitleToId, reportMap, communities, textunits]);
