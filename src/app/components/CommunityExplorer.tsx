@@ -22,6 +22,7 @@ import { Relationship } from "../models/relationship";
 import { Community } from "../models/community";
 import { CommunityReport } from "../models/community-report";
 import { TextUnit } from "../models/text-unit";
+import { Document } from "../models/document";
 
 interface CommunityExplorerProps {
   entities: Entity[];
@@ -29,6 +30,7 @@ interface CommunityExplorerProps {
   communities: Community[];
   communityReports: CommunityReport[];
   textunits: TextUnit[];
+  documents: Document[];
 }
 
 interface GraphNode {
@@ -57,6 +59,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
   communities,
   communityReports,
   textunits,
+  documents,
 }) => {
   const theme = useTheme();
   const [path, setPath] = useState<{ id: number | null; label: string }[]>([
@@ -95,6 +98,12 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
     textunits.forEach((t) => m.set(t.id, t));
     return m;
   }, [textunits]);
+
+  const documentMap = useMemo(() => {
+    const m = new Map<string, Document>();
+    documents.forEach((d) => m.set(d.id, d));
+    return m;
+  }, [documents]);
 
   const relationshipMap = useMemo(() => {
     const m = new Map<string, Relationship>();
@@ -178,9 +187,10 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
     // Text unit nodes for current community
     currentTextUnits.forEach((t) => {
       const nodeId = `t-${t.id}`;
+      const docHrid = (t.document_ids || []).map((did) => documentMap.get(did)?.human_readable_id).filter((id) => id != null).join(",");
       nodes.push({
         id: nodeId,
-        name: `TU ${t.human_readable_id}`,
+        name: docHrid ? `Doc ${docHrid} / TU ${t.human_readable_id}` : `TU ${t.human_readable_id}`,
         type: "textunit",
         textunit: t,
         val: 1,
@@ -273,7 +283,7 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
     });
 
     return { nodes, links };
-  }, [childCommunities, currentEntities, currentTextUnits, currentCommunity, relationships, relationshipMap, entityTitleToId, reportMap, communities, textunits]);
+  }, [childCommunities, currentEntities, currentTextUnits, currentCommunity, relationships, relationshipMap, entityTitleToId, reportMap, communities, textunits, documentMap]);
 
   useEffect(() => {
     if (graphRef.current && graphData.nodes.length > 0) {
@@ -621,7 +631,10 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
                   Text: {selectedNode.textunit.text}
                 </Typography>
                 {selectedNode.textunit.document_ids?.length > 0 && (
-                  <Typography>Document IDs: {selectedNode.textunit.document_ids.join(", ")}</Typography>
+                  <>
+                    <Typography>Document IDs: {selectedNode.textunit.document_ids.join(", ")}</Typography>
+                    <Typography>Document Human Readable IDs: {selectedNode.textunit.document_ids.map((did) => documentMap.get(did)?.human_readable_id ?? "?").join(", ")}</Typography>
+                  </>
                 )}
               </CardContent>
             </Card>
