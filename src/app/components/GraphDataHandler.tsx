@@ -7,6 +7,7 @@ import Introduction from "./Introduction";
 import useFileHandler from "../hooks/useFileHandler";
 import useGraphData from "../hooks/useGraphData";
 import DataTableContainer from "./DataTableContainer";
+import Statistics from "./Statistics";
 import ReactGA from "react-ga4";
 import agent from "../api/agent";
 
@@ -117,6 +118,9 @@ const GraphDataHandler: React.FC = () => {
       case "/data":
         setTabIndex(2);
         break;
+      case "/statistics":
+        setTabIndex(3);
+        break;
       default:
         setTabIndex(0);
     }
@@ -147,6 +151,7 @@ const GraphDataHandler: React.FC = () => {
     let path = "/upload";
     if (newValue === 1) path = "/graph";
     if (newValue === 2) path = "/data";
+    if (newValue === 3) path = "/statistics";
     navigate(path);
     ReactGA.send({
       hitType: "event",
@@ -170,6 +175,7 @@ const GraphDataHandler: React.FC = () => {
         <Tab label="Data Source" />
         <Tab label="Graph Visualization" />
         <Tab label="Data Tables" />
+        <Tab label="Statistics" />
       </Tabs>
       {tabIndex === 0 && (
         <Container
@@ -253,6 +259,18 @@ const GraphDataHandler: React.FC = () => {
             covariates={covariates}
           />
         </Box>
+      )}
+
+      {tabIndex === 3 && (
+        <Statistics
+          entities={entities}
+          relationships={relationships}
+          documents={documents}
+          textunits={textunits}
+          communities={communities}
+          communityReports={communityReports}
+          covariates={covariates}
+        />
       )}
     </>
   );
