@@ -77,7 +77,7 @@ export const communityReportColumns: MRT_ColumnDef<CommunityReport>[] = [
     },
     {
       accessorKey: "rank_explanation",
-      header: "rank_explanation",
+      header: "rank_explanation (from rating_explanation)",
     },
     {
       accessorKey: "findings",

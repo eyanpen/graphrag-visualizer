@@ -25,7 +25,7 @@ export const textUnitColumns: MRT_ColumnDef<TextUnit>[] = [
     },
     {
       accessorKey: "document_ids",
-      header: "document_ids",
+      header: "document_ids (from document_id)",
       Cell: ({ renderedCellValue }) =>
         Array.isArray(renderedCellValue)
           ? JSON.stringify(renderedCellValue, null, 2)

@@ -80,7 +80,7 @@ export const readParquetFile = async (
                 human_readable_id: parseValue(row["human_readable_id"], "number"),                
                 text: row["text"],
                 n_tokens: parseValue(row["n_tokens"], "number"),                
-                document_ids: row["document_ids"],
+                document_ids: row["document_ids"] || (row["document_id"] ? [row["document_id"]] : []),
                 entity_ids: row["entity_ids"],
                 relationship_ids: row["relationship_ids"],
               }))

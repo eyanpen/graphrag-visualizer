@@ -625,17 +625,12 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
             <Card>
               <CardContent>
                 <Typography>ID: {selectedNode.textunit.id}</Typography>
+                <Typography>Document Human Readable ID: {documentMap.get(selectedNode.textunit.document_ids?.[0])?.human_readable_id ?? "?"}</Typography>
                 <Typography>Human Readable ID: {selectedNode.textunit.human_readable_id}</Typography>
                 <Typography>Tokens: {selectedNode.textunit.n_tokens}</Typography>
                 <Typography sx={{ whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto" }}>
                   Text: {selectedNode.textunit.text}
                 </Typography>
-                {selectedNode.textunit.document_ids?.length > 0 && (
-                  <>
-                    <Typography>Document IDs: {selectedNode.textunit.document_ids.join(", ")}</Typography>
-                    <Typography>Document Human Readable IDs: {selectedNode.textunit.document_ids.map((did) => documentMap.get(did)?.human_readable_id ?? "?").join(", ")}</Typography>
-                  </>
-                )}
               </CardContent>
             </Card>
           )}

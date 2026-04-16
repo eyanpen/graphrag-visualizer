@@ -73,7 +73,7 @@ const App: React.FC = () => {
         page: window.location.pathname + window.location.search,
       });
     } else {
-      console.error("Google Analytics measurement ID not found");
+      console.debug("Google Analytics measurement ID not configured, skipping.");
     }
   }, []);
 
