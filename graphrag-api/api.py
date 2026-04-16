@@ -30,12 +30,15 @@ _console_handler = logging.StreamHandler()
 _console_handler.setLevel(logging.INFO)
 _console_handler.setFormatter(_fmt)
 
-# Create app logger immediately (won't be reset by uvicorn)
+# Root logger: captures all library logs (graphrag, litellm, etc.)
+# Works because uvicorn.run(log_config=None) won't reset it
+_root = logging.getLogger()
+_root.setLevel(logging.DEBUG)
+_root.addHandler(_file_handler)
+_root.addHandler(_console_handler)
+
+# App logger: for api.py own messages (inherits root handlers via propagate)
 log = logging.getLogger("graphrag-api")
-log.setLevel(logging.DEBUG)
-log.addHandler(_file_handler)
-log.addHandler(_console_handler)
-log.propagate = False
 
 from utils import process_context_data
 
@@ -44,16 +47,12 @@ from graphrag.config.load_config import load_config
 from graphrag.config.models.graph_rag_config import GraphRagConfig
 import pandas as pd
 
-# Attach file handler to LiteLLM loggers after import
-for _name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
-    logging.getLogger(_name).addHandler(_file_handler)
-
 
 def load_yaml_config() -> dict:
     """Load config.yaml from the parent directory (graphrag-visualizer root)."""
     config_path = Path(__file__).parent.parent / "config.yaml"
     if not config_path.exists():
-        print(f"ERROR: config.yaml not found at {config_path}")
+        log.error("config.yaml not found at %s", config_path)
         sys.exit(1)
     with open(config_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -96,8 +95,8 @@ def load_data_source(source_path: str, yaml_config: dict):
         graphrag_config = load_config(project_path)
         graphrag_config = apply_model_config(graphrag_config, yaml_config)
     except Exception as e:
-        print(f"Warning: Could not load graphrag config from {project_path}: {e}")
-        print("Search functionality may not work for this data source.")
+        log.warning("Could not load graphrag config from %s: %s", project_path, e)
+        log.warning("Search functionality may not work for this data source.")
         graphrag_config = None
 
     # Load parquet files
@@ -115,7 +114,7 @@ def load_data_source(source_path: str, yaml_config: dict):
             try:
                 data[name] = pd.read_parquet(file_path)
             except Exception as e:
-                print(f"Warning: Could not load {file_path}: {e}")
+                log.warning("Could not load %s: %s", file_path, e)
                 data[name] = None
         else:
             data[name] = None
@@ -135,7 +134,7 @@ async def lifespan(app: FastAPI):
     """Load the default (first) data source on startup."""
     data_sources = yaml_config.get("data_sources", [])
     if not data_sources:
-        print("WARNING: No data sources configured in config.yaml")
+        log.warning("No data sources configured in config.yaml")
         app.state.config = None
         app.state.data = {}
         app.state.current_source = None
@@ -146,9 +145,9 @@ async def lifespan(app: FastAPI):
             app.state.config = config
             app.state.data = data
             app.state.current_source = default_source["name"]
-            print(f"Loaded default data source: {default_source['name']}")
+            log.info("Loaded default data source: %s", default_source['name'])
         except Exception as e:
-            print(f"ERROR loading default data source: {e}")
+            log.error("Failed loading default data source: %s", e)
             app.state.config = None
             app.state.data = {}
             app.state.current_source = None
@@ -418,5 +417,5 @@ async def get_config():
 if __name__ == "__main__":
     api_port = yaml_config.get("server", {}).get("api_port", 16889)
     api_host = yaml_config.get("server", {}).get("host", "0.0.0.0")
-    print(f"Starting GraphRAG API on {api_host}:{api_port}")
+    log.info("Starting GraphRAG API on %s:%s", api_host, api_port)
     uvicorn.run(app, host=api_host, port=api_port, log_config=None)
