@@ -96,17 +96,13 @@ const CommunityExplorer: React.FC<CommunityExplorerProps> = ({
     return m;
   }, [communityReports]);
 
-  const maxLevel = useMemo(
-    () => Math.max(...communities.map((c) => c.level), 0),
-    [communities]
-  );
-
   const childCommunities = useMemo(() => {
     if (currentParentId === null) {
-      return communities.filter((c) => c.level === maxLevel);
+      // Top level: communities whose parent is -1
+      return communities.filter((c) => c.parent === -1 || c.parent == null);
     }
     return communities.filter((c) => c.parent === currentParentId);
-  }, [communities, currentParentId, maxLevel]);
+  }, [communities, currentParentId]);
 
   // Current community object
   const currentCommunity = useMemo(() => {
