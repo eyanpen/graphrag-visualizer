@@ -1,4 +1,41 @@
-import { parquetRead, ParquetReadOptions } from "hyparquet";
+import { parquetRead, parquetMetadata, parquetSchema, ParquetReadOptions, SchemaTree } from "hyparquet";
+
+export interface ParquetColumnSchema {
+  name: string;
+  type?: string;
+  converted_type?: string;
+  repetition_type?: string;
+  logical_type?: string;
+}
+
+export interface ParquetSchemaInfo {
+  num_rows: number;
+  num_columns: number;
+  columns: ParquetColumnSchema[];
+  created_by?: string;
+}
+
+export const readParquetSchemaInfo = (buffer: ArrayBuffer): ParquetSchemaInfo => {
+  const metadata = parquetMetadata(buffer);
+  const tree = parquetSchema(metadata);
+  const columns: ParquetColumnSchema[] = tree.children.map((child: SchemaTree) => ({
+    name: child.element.name,
+    type: child.element.type,
+    converted_type: child.element.converted_type,
+    repetition_type: child.element.repetition_type,
+    logical_type: child.element.logical_type
+      ? typeof child.element.logical_type === "object"
+        ? (child.element.logical_type as { type?: string }).type
+        : String(child.element.logical_type)
+      : undefined,
+  }));
+  return {
+    num_rows: Number(metadata.num_rows),
+    num_columns: columns.length,
+    columns,
+    created_by: metadata.created_by,
+  };
+};
 
 export class AsyncBuffer {
   private buffer: ArrayBuffer;

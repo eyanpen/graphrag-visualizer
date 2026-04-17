@@ -45,6 +45,7 @@ const GraphDataHandler: React.FC = () => {
     communityReports,
     loadFromApi,
     loading,
+    tableSchemas,
   } = useFileHandler();
 
   const graphData = useGraphData(
@@ -263,6 +264,7 @@ const GraphDataHandler: React.FC = () => {
             communities={communities}
             communityReports={communityReports}
             covariates={covariates}
+            tableSchemas={tableSchemas}
           />
         </Box>
       )}

@@ -7,8 +7,10 @@ import { TextUnit } from "../models/text-unit";
 import { Community } from "../models/community";
 import { CommunityReport } from "../models/community-report";
 import { Covariate } from "../models/covariate";
-import { readParquetFile } from "../utils/parquet-utils";
+import { readParquetFile, readParquetSchemaInfo, ParquetSchemaInfo } from "../utils/parquet-utils";
 import agent from "../api/agent";
+
+export type TableSchemas = Record<string, ParquetSchemaInfo>;
 
 const baseMapping: { [key: string]: string } = {
   "entities.parquet": "entity",
@@ -37,6 +39,7 @@ const useFileHandler = () => {
   const [covariates, setCovariates] = useState<Covariate[]>([]);
   const [communityReports, setCommunityReports] = useState<CommunityReport[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tableSchemas, setTableSchemas] = useState<TableSchemas>({});
 
   /**
    * Load parquet files from the GraphRAG API backend (current active data source).
@@ -59,6 +62,8 @@ const useFileHandler = () => {
       const communityReportsArray: CommunityReport[][] = [];
       const covariatesArray: Covariate[][] = [];
 
+      const schemas: TableSchemas = {};
+
       for (const filename of files) {
         const schema = fileSchemas[filename];
         if (!schema) continue; // Skip unknown files
@@ -66,6 +71,14 @@ const useFileHandler = () => {
         try {
           // Download parquet file as ArrayBuffer from API
           const buffer = await agent.DataSources.getParquetFile(filename, cacheBuster);
+
+          // Extract parquet schema info
+          try {
+            schemas[schema] = readParquetSchemaInfo(buffer);
+          } catch (e) {
+            console.warn(`Failed to read schema for ${filename}:`, e);
+          }
+
           const blob = new Blob([buffer], { type: "application/x-parquet" });
           const file = new File([blob], filename);
           const data = await readParquetFile(file, schema);
@@ -89,6 +102,7 @@ const useFileHandler = () => {
       setCommunities(communitiesArray.flat());
       setCommunityReports(communityReportsArray.flat());
       setCovariates(covariatesArray.flat());
+      setTableSchemas(schemas);
 
       navigate("/graph", { replace: true });
     } catch (err) {
@@ -108,6 +122,7 @@ const useFileHandler = () => {
     communityReports,
     loadFromApi,
     loading,
+    tableSchemas,
   };
 };
 
