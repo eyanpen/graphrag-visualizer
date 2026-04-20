@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Typography,
   Box,
@@ -15,18 +15,34 @@ import {
   TableRow,
   Paper,
 } from "@mui/material";
+import { MRT_ColumnDef } from "material-react-table";
 import DataTable from "./DataTable";
-import { Entity, entityColumns } from "../models/entity";
-import { Relationship, relationshipColumns } from "../models/relationship";
-import { Document, documentColumns } from "../models/document";
-import { TextUnit, textUnitColumns } from "../models/text-unit";
-import { Community, communityColumns } from "../models/community";
-import {
-  CommunityReport,
-  communityReportColumns,
-} from "../models/community-report";
-import { Covariate, covariateColumns } from "../models/covariate";
+import { Entity } from "../models/entity";
+import { Relationship } from "../models/relationship";
+import { Document } from "../models/document";
+import { TextUnit } from "../models/text-unit";
+import { Community } from "../models/community";
+import { CommunityReport } from "../models/community-report";
+import { Covariate } from "../models/covariate";
 import { TableSchemas } from "../hooks/useFileHandler";
+
+/** Build columns dynamically from the keys present in data rows */
+function buildColumns<T extends object>(data: T[]): MRT_ColumnDef<T>[] {
+  if (data.length === 0) return [];
+  const keys = Object.keys(data[0]);
+  return keys.map((key) => {
+    const col: MRT_ColumnDef<T> = { accessorKey: key as any, header: key };
+    // Auto-render arrays as JSON
+    const sample = (data[0] as any)[key];
+    if (Array.isArray(sample)) {
+      col.Cell = ({ renderedCellValue }) =>
+        Array.isArray(renderedCellValue)
+          ? JSON.stringify(renderedCellValue, null, 2)
+          : renderedCellValue;
+    }
+    return col;
+  });
+}
 
 interface DataTableContainerProps {
   selectedTable: string;
@@ -111,6 +127,14 @@ const DataTableContainer: React.FC<DataTableContainerProps> = ({
 }) => {
   const [schemaOpen, setSchemaOpen] = useState(false);
 
+  const entityCols = useMemo(() => buildColumns(entities), [entities]);
+  const relationshipCols = useMemo(() => buildColumns(relationships), [relationships]);
+  const documentCols = useMemo(() => buildColumns(documents), [documents]);
+  const textunitCols = useMemo(() => buildColumns(textunits), [textunits]);
+  const communityCols = useMemo(() => buildColumns(communities), [communities]);
+  const communityReportCols = useMemo(() => buildColumns(communityReports), [communityReports]);
+  const covariateCols = useMemo(() => buildColumns(covariates), [covariates]);
+
   const renderSection = (
     title: string,
     schemaKey: string,
@@ -191,19 +215,19 @@ const DataTableContainer: React.FC<DataTableContainerProps> = ({
       </Drawer>
       <Box p={3} sx={{ flexGrow: 1, overflow: "auto" }}>
         {selectedTable === "entities" &&
-          renderSection("Entities (entities.parquet)", tableToSchema.entities, entityColumns, entities)}
+          renderSection("Entities (entities.parquet)", tableToSchema.entities, entityCols, entities)}
         {selectedTable === "relationships" &&
-          renderSection("Relationships (relationships.parquet)", tableToSchema.relationships, relationshipColumns, relationships)}
+          renderSection("Relationships (relationships.parquet)", tableToSchema.relationships, relationshipCols, relationships)}
         {selectedTable === "documents" &&
-          renderSection("Documents (documents.parquet)", tableToSchema.documents, documentColumns, documents)}
+          renderSection("Documents (documents.parquet)", tableToSchema.documents, documentCols, documents)}
         {selectedTable === "textunits" &&
-          renderSection("TextUnits (text_units.parquet)", tableToSchema.textunits, textUnitColumns, textunits)}
+          renderSection("TextUnits (text_units.parquet)", tableToSchema.textunits, textunitCols, textunits)}
         {selectedTable === "communities" &&
-          renderSection("Communities (communities.parquet)", tableToSchema.communities, communityColumns, communities)}
+          renderSection("Communities (communities.parquet)", tableToSchema.communities, communityCols, communities)}
         {selectedTable === "communityReports" &&
-          renderSection("Community Reports (community_reports.parquet)", tableToSchema.communityReports, communityReportColumns, communityReports)}
+          renderSection("Community Reports (community_reports.parquet)", tableToSchema.communityReports, communityReportCols, communityReports)}
         {selectedTable === "covariates" &&
-          renderSection("Covariates (covariates.parquet)", tableToSchema.covariates, covariateColumns, covariates)}
+          renderSection("Covariates (covariates.parquet)", tableToSchema.covariates, covariateCols, covariates)}
       </Box>
     </>
   );

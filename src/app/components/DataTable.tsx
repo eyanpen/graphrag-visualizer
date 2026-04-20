@@ -18,12 +18,21 @@ const DataTable = <T extends object>({
 }: DataTableProps<T>): React.ReactElement => {
   const defaultVisibility = useMemo(() => {
     const vis: MRT_VisibilityState = {};
+    const sample = data[0] as Record<string, any> | undefined;
     columns.forEach((col) => {
       const key = (col as { accessorKey?: string }).accessorKey ?? col.id ?? "";
-      vis[key] = key !== "graph_embedding" && key !== "description_embedding";
+      if (key === "graph_embedding" || key === "description_embedding") {
+        vis[key] = false;
+      } else if (key === "id" || key.endsWith("_ids")) {
+        vis[key] = false;
+      } else if (sample && Array.isArray(sample[key])) {
+        vis[key] = false;
+      } else {
+        vis[key] = true;
+      }
     });
     return vis;
-  }, [columns]);
+  }, [columns, data]);
 
   const [columnVisibility, setColumnVisibility] =
     useState<MRT_VisibilityState>(defaultVisibility);
@@ -34,7 +43,7 @@ const DataTable = <T extends object>({
     state: { columnVisibility },
     onColumnVisibilityChange: setColumnVisibility,
     enableColumnActions: false,
-    enableHiding: false,
+    enableHiding: true,
     initialState: { density: "compact" },
   });
 
